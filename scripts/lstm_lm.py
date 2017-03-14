@@ -213,7 +213,8 @@ def main():
         trainsm = get_loss_function(
             train_params.softmax, train_params.hidden_size,
             train_params.vocab_size, train_params.batch_size,
-            train_params.num_steps, train_params.data_type)
+            train_params.num_steps, train_params.data_type,
+            train_params.bias_trainable)
     if args.valid:
         valid_data = data_loader(args.valid, valid_params.batch_size,
                                  valid_params.num_steps, vocab_file=args.vocab)
@@ -259,6 +260,7 @@ def main():
                 max_to_keep=max(10, config['Training']['early_stopping'] + 1))
             init = tf.global_variables_initializer()
 
+        # Load data into the embedding, if required
         if network_params.embedding and network_params.embedding_file:
             logger.info('Loading embedding from {}...'.format(
                 network_params.embedding_file))
@@ -269,6 +271,17 @@ def main():
         else:
             assign_em = tf.no_op()
 
+        # Load data into the SM bias, if required
+        if network_params.bias_file:
+            logger.info('Loading Softmax bias from {}...'.format(
+                network_params.bias_file))
+            softmax_b = tf.get_collection(tf.GraphKeys.VARIABLES,
+                                          scope='Model/softmax_b:0')[0]
+            b = np.load(network_params.bias_file)['data']
+            assign_b = softmax_b.assign(b)
+        else:
+            assign_b = tf.no_op()
+
     # TODO: look into Supervisor
     with tf.Session(graph=graph, config=get_sconfig(config.get('GPU'))) as sess:
         # The training itself
@@ -276,12 +289,11 @@ def main():
             boards_dir = os.path.join('boards', network_params.model_name)
             writer = tf.summary.FileWriter(boards_dir, graph=graph)
             last_epoch = init_or_load_session(sess, save_dir, saver, init)
-            # Load the embedding from file.
+            # Load the embedding and the softmax bias from file.
             if last_epoch == 0:
-                sess.run(assign_em)
+                sess.run([assign_em, assign_b])
                 # Hope this frees up the embedding array...
-                del assign_em
-
+                del assign_em, assign_b
             global_step = 0  # TODO not if we load the model...
             logger.info('Starting...')
             if args.valid:

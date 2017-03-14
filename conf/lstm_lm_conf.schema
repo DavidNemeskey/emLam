@@ -13,6 +13,10 @@ embedding = boolean(default=yes)
 embedding_file = string(default="")
 # Whether the embedding is trainable. Should be `True` (the default) if `embedding_file` is not specified.
 embedding_trainable = boolean(default=yes)
+# The file to load the softmax bias from. If not specified (the default), a new one is computed.
+bias_file = string(default="")
+# Whether the softmax bias is trainable. Should be `True` (the default) if `bias_file` is not specified.
+bias_trainable = boolean(default=yes)
 # The keep probability of dropout; if 0, no dropout is applied.
 dropout = float(min=0, max=1, default=0)
 # The initial scale of the weights.

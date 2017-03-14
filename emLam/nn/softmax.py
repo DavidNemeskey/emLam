@@ -15,12 +15,13 @@ class LossAndPrediction(object):
     Creates a loss and a prediction tensor (the latter only for evaluation).
     """
     def __init__(self, hidden_size, vocab_size, batch_size, num_steps,
-                 data_type, kwargs):
+                 data_type, bias_trainable, kwargs):
         self.hidden_size = hidden_size
         self.vocab_size = vocab_size
         self.batch_size = batch_size
         self.num_steps = num_steps
         self.data_type = data_type
+        self.bias_trainable = bias_trainable
         self.kwargs = kwargs
 
     def __call__(self):
@@ -33,8 +34,9 @@ class Softmax(LossAndPrediction):
         softmax_w = tf.get_variable(
             "softmax_w", [self.hidden_size, self.vocab_size],
             dtype=self.data_type)
-        softmax_b = tf.get_variable(
-            "softmax_b", [self.vocab_size], dtype=self.data_type)
+        softmax_b = tf.get_variable("softmax_b", [self.vocab_size],
+                                    dtype=self.data_type,
+                                    trainable=self.bias_trainable)
         # einsum is the better way to do 3Dx2D
         logits = tf.einsum('ijk,kl->ijl', outputs, softmax_w) + softmax_b
         # flat_output = tf.reshape(outputs, [-1, self.hidden_size])
@@ -69,8 +71,9 @@ class SamplingError(LossAndPrediction):
         flat_output = tf.reshape(outputs, [-1, self.hidden_size])
         softmax_w = tf.get_variable(
             "softmax_w", [self.hidden_size, self.vocab_size], dtype=self.data_type)
-        softmax_b = tf.get_variable(
-            "softmax_b", [self.vocab_size], dtype=self.data_type)
+        softmax_b = tf.get_variable("softmax_b", [self.vocab_size],
+                                    dtype=self.data_type,
+                                    trainable=self.bias_trainable)
         cost = loss_func(
             tf.transpose(softmax_w), softmax_b,         # .T for some reason
             flat_output, tf.reshape(targets, [-1, 1]),  # Column vector
