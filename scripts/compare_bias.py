@@ -20,7 +20,15 @@ def parse_arguments():
         description='Tries to approximate the word unigram distribution with '
                     'softmax bias.')
     parser.add_argument('--bias', '-b', required=True, help='the bias file.')
-    parser.add_argument('--vocab', '-v', required=True, help='the vocab file')
+    vocab_or_prob = parser.add_mutually_exclusive_group(required=True)
+    vocab_or_prob.add_argument('--vocabulary', '-v',
+                               help='a vocabulary file. If specified, the '
+                                    'script will try to approximate the word '
+                                    'frequencies.')
+    vocab_or_prob.add_argument('--probability', '-p',
+                               help='a word-probability mapping. If specified, '
+                                    'the script will try to approximate the '
+                                    'word probabilities from the model.')
     return parser.parse_args()
 
 
@@ -43,12 +51,12 @@ def main():
           np.power(np_pred1 - np.log(vocab), 2).mean())
 
     with tf.Graph().as_default() as graph:
-        x = tf.get_variable('x', [], tf.float32)
-        y = tf.get_variable('y', [], tf.float32)
-        b = tf.placeholder(tf.float32, shape=sm_bias.shape)
-        v = tf.placeholder(tf.float32, shape=vocab.shape)
-        prediction = x*b + y
-        loss = tf.reduce_mean(tf.squared_difference(prediction, tf.log(v)))
+        a = tf.get_variable('x', [], tf.float32)
+        b = tf.get_variable('y', [], tf.float32)
+        bias_ph = tf.placeholder(tf.float32, shape=sm_bias.shape)
+        vocab_ph = tf.placeholder(tf.float32, shape=vocab.shape)
+        prediction = tf.exp(a*bias_ph + b)
+        loss = tf.reduce_mean(tf.squared_difference(prediction / vocab_ph, 1))
         train = tf.train.GradientDescentOptimizer(0.1).minimize(loss)
         init = tf.global_variables_initializer()
 
