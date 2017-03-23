@@ -94,11 +94,11 @@ class SampledSoftmax(SamplingError):
 
 
 def get_loss_function(loss_definition, hidden_size, vocab_size, batch_size,
-                      num_steps, data_type):
+                      num_steps, data_type, bias_trainable=True):
     defs = loss_definition.split(',')
     def_params = dict(map(partial(str.split, sep=':'), defs[1:]))
     return globals()[defs[0]](hidden_size, vocab_size, batch_size, num_steps,
-                              data_type, def_params)
+                              data_type, bias_trainable, def_params)
 
 
 # def differentiated_softmax(outputs, targets, hidden_size, vocab_size,
