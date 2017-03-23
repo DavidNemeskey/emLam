@@ -48,11 +48,11 @@ def main():
             saver.restore(session, checkpoint_path)
         else:
             raise ValueError('No saved model exists.')
-        # TODO change to GLOBAL_VARIABLES in 0.12+
-        embedding = tf.get_collection(tf.GraphKeys.VARIABLES,
-                                      scope=args.variable + ':0')[0]
-        em = session.run(embedding)
-        np.savez(args.output_file + '.npz', vocab=vocab, embedding=em)
+        get_var_op = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                                       scope=args.variable + ':0')[0]
+        var = session.run(get_var_op)
+        np.savez(args.output_file + '.npz',
+                 **{'vocab': vocab, args.variable: var})
 
 
 if __name__ == '__main__':
