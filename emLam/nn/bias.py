@@ -44,3 +44,13 @@ def read_prob(prob_file, vocab_map):
             elif word != '<s>':
                 raise ValueError('No word if for {}'.format(word))
     return probs
+
+
+def read_bias_file(bias_file, vocab_map):
+    """Reads a bias file saved from a model and and loads it to a np array."""
+    npz = np.load(bias_file)
+    vocab = npz['vocab']
+    sorter = np.argsort([vocab_map[w] for w in vocab])
+    bias = npz[next(filter(lambda k: 'softmax_b' in k, npz.keys()))][sorter]
+    exp_logits = np.exp(bias)
+    return exp_logits / np.sum(exp_logits)
