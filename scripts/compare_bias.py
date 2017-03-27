@@ -4,6 +4,7 @@
 """Tries to approximate the word unigram distribution with softmax bias."""
 
 from argparse import ArgumentParser
+from itertools import dropwhile, takewhile
 import os
 
 import numpy as np
@@ -44,9 +45,41 @@ def prob_loss(a, b, bias_ph, prob_ph):
     target = prob_ph
     exp_logits = tf.exp(a * bias_ph + b)
     prediction = exp_logits / tf.reduce_sum(exp_logits)
-    loss = tf.reduce_mean(-tf.reduce_sum(prediction * tf.log(target),
-                                         reduction_indices=[1]))
+    loss = tf.nn.softmax_cross_entropy_with_logits(logits=a * bias_ph + b, labels=target)
+    # loss = tf.reduce_mean(-tf.reduce_sum(prediction * tf.log(target)))
     return prediction, loss
+
+
+def read_vocab_map(dict_file):
+    """Returns the word -> word_index mapping."""
+    with openall(dict_file) as inf:
+        return {l.split('\t', 1)[0]: i for i, l in enumerate(inf)}
+
+
+def read_vocab_arr(vocab_file):
+    """Reads the word frequency counts into a vector."""
+    with openall(vocab_file) as inf:
+        return np.array(
+            [int(v) for k, v in [l.split('\t') for l in
+                                 inf.read().split('\n') if l]],
+            dtype=np.float32
+        )
+
+
+def read_prob(prob_file, vocab_map):
+    """prob_file should be a tsv with two fields: the log10prob and the word."""
+    probs = np.zeros(len(vocab_map), dtype=np.float32)
+    with openall(prob_file) as inf:
+        lines = map(lambda l: l.strip(), inf)
+        lines = dropwhile(lambda l: '\t' not in l, lines)
+        for line in takewhile(lambda l: '\t' in l, lines):
+            logp, word = line.split('\t')
+            word_id = vocab_map.get(word, None)
+            if word_id is not None:
+                probs[word_id] = np.power(10, np.float32(logp))
+            elif word != '<s>':
+                raise ValueError('No word if for {}'.format(word))
+    return probs
 
 
 vocab_losses = {
@@ -61,49 +94,58 @@ def parse_arguments():
         description='Tries to approximate the word unigram distribution with '
                     'softmax bias.')
     parser.add_argument('--bias', '-b', required=True, help='the bias file.')
-    vocab_or_prob = parser.add_mutually_exclusive_group(required=True)
-    vocab_or_prob.add_argument('--vocabulary', '-v',
-                               help='a vocabulary file. If specified, the '
-                                    'script will try to approximate the word '
-                                    'frequencies.')
-    vocab_or_prob.add_argument('--probability', '-p',
-                               help='a word-probability mapping. If specified, '
-                                    'the script will try to approximate the '
-                                    'word probabilities from the model.')
-    parser.add_argument('--normalize', '-n', choices=vocab_losses.keys(),
-                        help='normalize by the word counts for -v.')
+    parser.add_argument('--vocabulary', '-v', required=True,
+                        help='the vocabulary file.')
     parser.add_argument('--max-steps', '-m', type=int, default=100,
                         help='the maximum number of iterations [100].')
-    args = parser.parse_args()
-
-    if not args.vocabulary and args.normalize:
-        parser.error('-n is only valid when -v is used.')
-    return args
+    parser.add_argument('--learning-rate', '-l', type=float, default=0.1,
+                        help='the learning rate [0.1].')
+    subparsers = parser.add_subparsers(dest='command',
+                                       help='the available approximation '
+                                            'methods.')
+    vocab_parser = subparsers.add_parser('vocab', help='try to approximate the '
+                                                       'word frequencies.')
+    vocab_parser.add_argument('--normalize', '-n', choices=vocab_losses.keys(),
+                              help='normalize by the word counts for -v.')
+    prob_parser = subparsers.add_parser('prob', help='try to approximate the '
+                                                     'word probabilities.')
+    prob_parser.add_argument('--model-file', '-p',
+                             help='the LM model file. If not specified, the ML '
+                                  'probabilities are computed from the word '
+                                  'frequencies.')
+    return parser.parse_args()
 
 
 def main():
     args = parse_arguments()
-    with openall(args.vocabulary or args.probability) as inf:
-        target_val = np.array(
-            [int(v) for k, v in [l.split('\t') for l in
-                                 inf.read().split('\n') if l]],
-            dtype=np.float32
-        )
+    print(args)
+
+    vocab = read_vocab_map(args.vocabulary)
+    if args.command == 'vocab':
+        target_val = read_vocab_arr(args.vocabulary)
+    else:
+        if args.model_file:
+            target_val = read_prob(args.model_file, vocab)
+        else:
+            target_val = read_vocab_arr(args.vocabulary)
+            target_val /= target_val.sum()
+
     npz = np.load(args.bias)
     bias_val = npz[next(filter(lambda k: 'softmax_b' in k, npz.keys()))]
     # print("sm_bias\n", sm_bias)
 
     with tf.Graph().as_default() as graph:
-        a = tf.get_variable('a', [], tf.float32)
-        b = tf.get_variable('b', [], tf.float32)
+        var_init = tf.constant_initializer(0.01)
+        a = tf.get_variable('a', [], tf.float32, initializer=var_init)
+        b = tf.get_variable('b', [], tf.float32, initializer=var_init)
         bias_ph = tf.placeholder(tf.float32, shape=bias_val.shape)
         target_ph = tf.placeholder(tf.float32, shape=target_val.shape)
-        if args.probability:
-            loss_fn = prob_loss
-        else:
+        if args.command == 'vocab':
             loss_fn = vocab_losses[args.normalize]
+        else:
+            loss_fn = prob_loss
         prediction, loss, = loss_fn(a, b, bias_ph, target_ph)
-        train = tf.train.GradientDescentOptimizer(0.1).minimize(loss)
+        train = tf.train.GradientDescentOptimizer(args.learning_rate).minimize(loss)
         init = tf.global_variables_initializer()
 
     with tf.Session(graph=graph) as session:
@@ -125,7 +167,7 @@ def main():
                 feed_dict=feed_dict
             )
             print(pred_val, a_val, b_val)
-            print('Step {}, loss {}, x {}, y {}'.format(i, loss_val, a_val, b_val))
+            print('Step {}, loss {}, a {}, b {}'.format(i, loss_val, a_val, b_val))
             if loss_val > last_loss or np.abs(last_loss - loss_val) < 1e-5:
                 break
             else:
