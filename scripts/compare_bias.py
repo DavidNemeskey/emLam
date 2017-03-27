@@ -4,7 +4,6 @@
 """Tries to approximate the word unigram distribution with softmax bias."""
 
 from argparse import ArgumentParser
-from itertools import dropwhile, takewhile
 import os
 
 import numpy as np
@@ -13,7 +12,7 @@ import numpy as np
 os.environ['TF_CPP_MIN_LOG_LEVEL']='3'  # noqa
 import tensorflow as tf
 
-from emLam.utils import openall
+from emLam.nn.bias import read_prob, read_vocab_arr, read_vocab_map
 
 
 def normalized_vocab_loss(a, b, bias_ph, vocab_ph):
@@ -48,38 +47,6 @@ def prob_loss(a, b, bias_ph, prob_ph):
     loss = tf.nn.softmax_cross_entropy_with_logits(logits=a * bias_ph + b, labels=target)
     # loss = tf.reduce_mean(-tf.reduce_sum(prediction * tf.log(target)))
     return prediction, loss
-
-
-def read_vocab_map(dict_file):
-    """Returns the word -> word_index mapping."""
-    with openall(dict_file) as inf:
-        return {l.split('\t', 1)[0]: i for i, l in enumerate(inf)}
-
-
-def read_vocab_arr(vocab_file):
-    """Reads the word frequency counts into a vector."""
-    with openall(vocab_file) as inf:
-        return np.array(
-            [int(v) for k, v in [l.split('\t') for l in
-                                 inf.read().split('\n') if l]],
-            dtype=np.float32
-        )
-
-
-def read_prob(prob_file, vocab_map):
-    """prob_file should be a tsv with two fields: the log10prob and the word."""
-    probs = np.zeros(len(vocab_map), dtype=np.float32)
-    with openall(prob_file) as inf:
-        lines = map(lambda l: l.strip(), inf)
-        lines = dropwhile(lambda l: '\t' not in l, lines)
-        for line in takewhile(lambda l: '\t' in l, lines):
-            logp, word = line.split('\t')
-            word_id = vocab_map.get(word, None)
-            if word_id is not None:
-                probs[word_id] = np.power(10, np.float32(logp))
-            elif word != '<s>':
-                raise ValueError('No word if for {}'.format(word))
-    return probs
 
 
 vocab_losses = {
