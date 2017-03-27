@@ -9,6 +9,7 @@ import os
 import numpy as np
 
 from emLam.nn.bias import read_prob, read_vocab_arr, read_vocab_map
+from emLam.utils import openall
 
 
 vocab_losses = {
