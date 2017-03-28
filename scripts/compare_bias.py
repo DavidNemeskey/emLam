@@ -61,6 +61,7 @@ def main():
     for i1, i2 in it(range(len(inputs)), 2):
         results[i1, i2] = fn(data[inputs[i1]], data[inputs[i2]])
     print(inputs)
+    np.set_printoptions(suppress=True)
     print(results)
 
 
