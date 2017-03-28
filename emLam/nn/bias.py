@@ -4,6 +4,7 @@
 """Bias-related functions."""
 
 from itertools import dropwhile, takewhile
+from operator import itemgetter
 
 import numpy as np
 
@@ -46,6 +47,21 @@ def read_prob(prob_file, vocab_map):
     return probs
 
 
+def write_prob(prob_file, distribution, vocab_map):
+    probs = np.log10(distribution)
+    words = list(vocab_map.keys()) + (['<s>'] if '<s>' not in vocab_map else [])
+    with openall(prob_file, 'wt') as outf:
+        print('\n\\data\\\nngram 1={}\n\n\\1-grams:'.format(len(words)),
+              file=outf)
+        for w in sorted(words):
+            if w != '<s>':
+                num = '{:.6f}'.format(probs[vocab_map[w]]).rstrip('0').rstrip('.')
+                print('{}\t{}'.format(num, w), file=outf)
+            else:
+                print('-99\t<s>', file=outf)
+        print('\n\\end\\', file=outf)
+
+
 def read_bias_file(bias_file, vocab_map):
     """Reads a bias file saved from a model and and loads it to a np array."""
     npz = np.load(bias_file)
@@ -54,3 +70,14 @@ def read_bias_file(bias_file, vocab_map):
     bias = npz[next(filter(lambda k: 'softmax_b' in k, npz.keys()))][sorter]
     exp_logits = np.exp(bias)
     return exp_logits / np.sum(exp_logits)
+
+
+def write_bias_file(bias_file, distribution, vocab_map):
+    """
+    Converts a distribution to RNN bias. The values are scaled so that the
+    first coefficient is around 8 (just because -- no reason).
+    """
+    bias = np.log(distribution)
+    bias += (8 - bias[0])
+    vocab_list = [w for w, _ in sorted(vocab_map.items(), key=itemgetter(1))]
+    np.savez(bias_file, **{'vocab': vocab_list, 'Model/softmax_b': bias})
