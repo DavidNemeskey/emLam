@@ -46,13 +46,14 @@ def main():
     args = parse_arguments()
 
     vocab_map = read_vocab_map(args.vocabulary)
-    data = {}
+    inputs, data = [], {}
     for input_file in args.bias:
         data[input_file] = read_bias_file(input_file, vocab_map)
+        inputs.append(input_file)
     for input_file in args.model_file:
         data[input_file] = read_prob(input_file, vocab_map)
+        inputs.append(input_file)
 
-    inputs = sorted(data.keys())
     results = np.zeros((len(inputs), len(inputs)), dtype=np.float32)
     if args.cost == 'js':
         it, fn = combinations, jsd
