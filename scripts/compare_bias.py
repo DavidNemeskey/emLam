@@ -22,8 +22,10 @@ def parse_arguments():
                         help='a bias file.')
     parser.add_argument('--model-file', '-m', action='append', default=[],
                         help='a LM model file.')
-    parser.add_argument('--cost', '-c', choices=['kl', 'js'], default='kl',
-                        help='the cost function (KL or JS divergence).')
+    parser.add_argument('--cost', '-c', choices=['kl', 'js', 'sqrtjs'],
+                        default='kl',
+                        help='the cost function (KL or JS divergence, or the '
+                             'square root of the latter, which is a metric).')
     args = parser.parse_args()
 
     if len(args.bias) + len(args.model_file) <= 1:
@@ -42,6 +44,11 @@ def jsd(p, q):
     return 0.5 * (entropy(p, m) + entropy(q, m))
 
 
+def sqrtjs(p, q):
+    """The square root of the Jensen-Shannon divergence."""
+    return np.sqrt(jsd(p, q))
+
+
 def main():
     args = parse_arguments()
 
@@ -57,6 +64,8 @@ def main():
     results = np.zeros((len(inputs), len(inputs)), dtype=np.float32)
     if args.cost == 'js':
         it, fn = combinations, jsd
+    elif args.cost == 'sqrtjs':
+        it, fn = combinations, sqrtjs
     else:
         it, fn = permutations, entropy
     for i1, i2 in it(range(len(inputs)), 2):
