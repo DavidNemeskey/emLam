@@ -271,7 +271,7 @@ def main():
                 network_params.embedding_file))
             embedding = tf.get_collection(tf.GraphKeys.VARIABLES,
                                           scope='Model/embedding:0')[0]
-            em = np.load(network_params.embedding_file)['embedding']
+            em = np.load(network_params.embedding_file)['Model/embedding']
             assign_em = embedding.assign(em)
         else:
             assign_em = tf.no_op()
@@ -282,7 +282,7 @@ def main():
                 network_params.bias_file))
             softmax_b = tf.get_collection(tf.GraphKeys.VARIABLES,
                                           scope='Model/softmax_b:0')[0]
-            b = np.load(network_params.bias_file)['data']
+            b = np.load(network_params.bias_file)['Model/softmax_b']
             assign_b = softmax_b.assign(b)
         else:
             assign_b = tf.no_op()
