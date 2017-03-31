@@ -38,7 +38,8 @@ def read_prob(prob_file, vocab_map):
         lines = map(lambda l: l.strip(), inf)
         lines = dropwhile(lambda l: '\t' not in l, lines)
         for line in takewhile(lambda l: '\t' in l, lines):
-            logp, word = line.split('\t')
+            fields = line.split('\t')
+            logp, word = fields[0], fields[1]
             word_id = vocab_map.get(word, None)
             if word_id is not None:
                 probs[word_id] = np.power(10, np.float32(logp))
