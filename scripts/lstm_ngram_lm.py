@@ -227,7 +227,7 @@ def main():
             train_params.softmax, train_params.hidden_size,
             train_params.vocab_size, train_params.batch_size,
             train_params.num_steps, train_params.data_type,
-            train_params.bias_trainable)
+            train_params.bias_trainable, last_only=True)
     if args.valid:
         valid_data = data_loader(args.valid, valid_params.batch_size,
                                  valid_params.num_steps, vocab_file=args.vocab)

@@ -43,10 +43,21 @@ class Softmax(LossAndPrediction):
         # logits = tf.matmul(flat_output, softmax_w) + softmax_b
         # logits2 = tf.reshape(logits, [self.batch_size, self.num_steps, -1])
 
+        # Whether to compute the error based only the last unrolled target word
+        if bool(self.kwargs.get('last_only')):
+            mask = tf.concat([
+                tf.zeros([self.batch_size, self.num_steps - 1], dtype=self.data_type),
+                tf.ones([self.batch_size, 1], dtype=self.data_type)],
+                axis=1, name='mask'
+            )
+        else:
+            mask = tf.ones([self.batch_size, self.num_steps],
+                           dtype=self.data_type, name='mask')
+
         cost = tf.contrib.seq2seq.sequence_loss(
             logits,
             targets,
-            tf.ones([self.batch_size, self.num_steps], dtype=self.data_type),
+            mask,
             average_across_timesteps=False,  # BPTT
             average_across_batch=True)
         loss = tf.reduce_sum(cost)
@@ -94,9 +105,11 @@ class SampledSoftmax(SamplingError):
 
 
 def get_loss_function(loss_definition, hidden_size, vocab_size, batch_size,
-                      num_steps, data_type, bias_trainable=True):
+                      num_steps, data_type, bias_trainable=True, last_only=False):
+    """last_only currently is only taken into account by Softmax."""
     defs = loss_definition.split(',')
     def_params = dict(map(partial(str.split, sep=':'), defs[1:]))
+    def_params['last_only'] = last_only
     return globals()[defs[0]](hidden_size, vocab_size, batch_size, num_steps,
                               data_type, bias_trainable, def_params)
 
