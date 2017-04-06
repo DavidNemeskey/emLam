@@ -23,6 +23,7 @@ class NgramLoader(object):
         - vocab_file: for the token -> int mapping.
         """
         super(NgramLoader, self).__init__()
+        self.logger = logging.getLogger('emLam.nn')
         self.ngram_file = ngram_file
         self.order = order
         self.batch_size = batch_size
@@ -38,8 +39,7 @@ class NgramModelLoader(NgramLoader):
     """Gets the data from the model (AT&T format) file."""
     def __init__(self, *args):
         super(NgramModelLoader, self).__init__(*args)
-        logging.getLogger('emLam.nn').info('Ngram model loader from {}'.format(
-            self.ngram_file))
+        self.logger.info('Ngram model loader from {}'.format(self.ngram_file))
 
 
 class NgramCountLoader(NgramLoader):
@@ -49,11 +49,12 @@ class NgramCountLoader(NgramLoader):
     """
     def __init__(self, *args):
         super(NgramCountLoader, self).__init__(*args)
-        logging.getLogger('emLam.nn').info('Ngram count loader from {}'.format(
-            self.ngram_file))
+        self.logger.info('Ngram count loader from {}'.format(self.ngram_file))
         self.ngrams, self.freqs = self.__read_file()
         self.data_len = self.freqs.sum()
         self.epoch_size = self.data_len // self.batch_size
+        self.logger.info('Data len: {}, batch size: {}, epoch size: {}'.format(
+            self.data_len, self.batch_size, self.epoch_size))
         self.seed = 42
         self.indices = self.__fill_indices()
 
@@ -71,7 +72,8 @@ class NgramCountLoader(NgramLoader):
     def __iter__(self):
         last = 0
         for e in range(self.epoch_size):
-            yield self.ngrams[self.indices[last:last + self.batch_size]]
+            data = self.ngrams[self.indices[last:last + self.batch_size]]
+            yield data[:, :-1], data[:, 1:]
             last += self.batch_size
 
     def __read_file(self):
