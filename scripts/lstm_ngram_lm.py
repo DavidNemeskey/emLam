@@ -227,7 +227,7 @@ def main():
             train_params.softmax, train_params.hidden_size,
             train_params.vocab_size, train_params.batch_size,
             train_params.num_steps, train_params.data_type,
-            train_params.bias_trainable, last_only=True)
+            train_params.bias_trainable, last_only=train_data.last_only)
     if args.valid:
         valid_data = data_loader(args.valid, valid_params.batch_size,
                                  valid_params.num_steps, vocab_file=args.vocab)
@@ -235,7 +235,8 @@ def main():
         validsm = get_loss_function(
             valid_params.softmax, valid_params.hidden_size,
             valid_params.vocab_size, valid_params.batch_size,
-            valid_params.num_steps, valid_params.data_type)
+            valid_params.num_steps, valid_params.data_type,
+            last_only=valid_data.last_only)
     if args.test:
         test_data = data_loader(args.test, test_params.batch_size,
                                 test_params.num_steps, vocab_file=args.vocab)
@@ -243,7 +244,8 @@ def main():
         testsm = get_loss_function(
             test_params.softmax, test_params.hidden_size,
             test_params.vocab_size, test_params.batch_size,
-            test_params.num_steps, test_params.data_type)
+            test_params.num_steps, test_params.data_type,
+            last_only=test_data.last_only)
 
     # Create the models and the global ops
     with tf.Graph().as_default() as graph:

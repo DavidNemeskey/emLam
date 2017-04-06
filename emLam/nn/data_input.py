@@ -35,6 +35,7 @@ class DataLoader(object):
         self.data_batches = data_batches
         self.one_hot = one_hot
         self.data_type = data_type
+        self.last_only = False
         self.vocab = self.read_vocab(vocab_file) if vocab_file else None
         self.batch_div = self.__batch_per_batch()
 

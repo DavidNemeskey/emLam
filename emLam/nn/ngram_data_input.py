@@ -29,6 +29,7 @@ class NgramLoader(object):
         self.vocab_file = vocab_file
         self.one_hot = one_hot
         self.data_type = data_type
+        self.last_only = True
         self.vocab = read_vocab_map(vocab_file)
         self.vocab['<s>'] = self.vocab['</s>']  # We don't use <s>
 
@@ -37,6 +38,8 @@ class NgramModelLoader(NgramLoader):
     """Gets the data from the model (AT&T format) file."""
     def __init__(self, *args):
         super(NgramModelLoader, self).__init__(*args)
+        logging.getLogger('emLam.nn').info('Ngram model loader from {}'.format(
+            self.ngram_file))
 
 
 class NgramCountLoader(NgramLoader):
@@ -46,6 +49,8 @@ class NgramCountLoader(NgramLoader):
     """
     def __init__(self, *args):
         super(NgramCountLoader, self).__init__(*args)
+        logging.getLogger('emLam.nn').info('Ngram count loader from {}'.format(
+            self.ngram_file))
         self.ngrams, self.freqs = self.__read_file()
         self.data_len = self.freqs.sum()
         self.epoch_size = self.data_len // self.batch_size
@@ -126,14 +131,7 @@ class SlowNgramCountLoader(NgramLoader):
 def ngram_data_loader(ngram_file, order, batch_size, vocab_file,
                       one_hot=False, data_type=np.int32):
     if 'cnt' in ngram_file:
-        return NgramCountLoader()
+        cls = NgramCountLoader
     else:
-        return NgramModelLoader()
-    with openall(header) as inf:
-        format, _, data_batches, _, data_len = inf.readline().strip().split('\t')
-        if format == 'txt':
-            cls = TxtDiskLoader
-        elif format == 'int':
-            cls = IntMemLoader
-    return cls(header, batch_size, num_steps, int(data_len), int(data_batches),
-               one_hot, data_type, vocab_file)
+        cls = NgramModelLoader()
+    return cls(ngram_file, order, batch_size, vocab_file, one_hot, data_type)
