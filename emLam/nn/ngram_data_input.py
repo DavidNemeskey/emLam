@@ -121,3 +121,19 @@ class SlowNgramCountLoader(NgramLoader):
                               dtype=np.int32),
                      int(freq)) for ngram, freq in data_it]
             return data
+
+
+def ngram_data_loader(ngram_file, order, batch_size, vocab_file,
+                      one_hot=False, data_type=np.int32):
+    if 'cnt' in ngram_file:
+        return NgramCountLoader()
+    else:
+        return NgramModelLoader()
+    with openall(header) as inf:
+        format, _, data_batches, _, data_len = inf.readline().strip().split('\t')
+        if format == 'txt':
+            cls = TxtDiskLoader
+        elif format == 'int':
+            cls = IntMemLoader
+    return cls(header, batch_size, num_steps, int(data_len), int(data_batches),
+               one_hot, data_type, vocab_file)
