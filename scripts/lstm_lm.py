@@ -77,6 +77,11 @@ def parse_arguments():
     parser.add_argument('--RESET', '-R', dest='reset', action='store_const',
                         const=2, help='Same as --reset, but also works for '
                                       'testing. Use with caution.')
+    parser.add_argument('--state-stats', '-s', default=None,
+                        help='the state statistics file. An npz file with an '
+                             'array called states, whose size is layers x 2 x '
+                             '2, with the middle dimension missing for GRU and '
+                             'the last storing two numbers: mean and std.')
     parser.add_argument('--log-level', '-l', type=str, default=None,
                         choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='the logging level.')
@@ -99,7 +104,7 @@ def parse_arguments():
     return args, config
 
 
-def run_epoch(session, model, data, epoch_size=0, verbose=0,
+def run_epoch(session, model, data, epoch_size=0, state_stats=None, verbose=0,
               global_step=0, writer=None):
     """
     Runs an epoch on the network.
@@ -114,6 +119,21 @@ def run_epoch(session, model, data, epoch_size=0, verbose=0,
     costs = 0.0
     iters = 0
     state = session.run(model.initial_state)
+    # Set the initial state to random, if we have statistics for them
+    if state_stats:
+        st_shape = state_stats.shape
+        for layer in state:
+            if len(st_shape) == 3:  # LSTM
+                layer.c[:] = np.random.normal(state_stats[layer, 0, 0],
+                                              state_stats[layer, 0, 1],
+                                              layer.c.shape)
+                layer.h[:] = np.random.normal(state_stats[layer, 1, 0],
+                                              state_stats[layer, 1, 1],
+                                              layer.h.shape)
+            else:  # GRU, RNN
+                layer[:] = np.random.normal(state_stats[layer, 0],
+                                            state_stats[layer, 1],
+                                            layer.shape)
 
     fetches = [model.cost, model.final_state, model.train_op]
     fetches_summary = fetches + [model.summaries]
@@ -219,7 +239,7 @@ def main():
             train_params.softmax, train_params.hidden_size,
             train_params.vocab_size, train_params.batch_size,
             train_params.num_steps, train_params.data_type,
-            train_params.bias_trainable)
+            train_params.bias_trainable, last_only=train_data.last_only)
     if args.valid:
         valid_data = data_loader(args.valid, valid_params.batch_size,
                                  valid_params.num_steps, vocab_file=args.vocab)
@@ -227,7 +247,8 @@ def main():
         validsm = get_loss_function(
             valid_params.softmax, valid_params.hidden_size,
             valid_params.vocab_size, valid_params.batch_size,
-            valid_params.num_steps, valid_params.data_type)
+            valid_params.num_steps, valid_params.data_type,
+            last_only=valid_data.last_only)
     if args.test:
         test_data = data_loader(args.test, test_params.batch_size,
                                 test_params.num_steps, vocab_file=args.vocab)
@@ -235,7 +256,8 @@ def main():
         testsm = get_loss_function(
             test_params.softmax, test_params.hidden_size,
             test_params.vocab_size, test_params.batch_size,
-            test_params.num_steps, test_params.data_type)
+            test_params.num_steps, test_params.data_type,
+            last_only=test_data.last_only)
 
     # Create the models and the global ops
     with tf.Graph().as_default() as graph:
@@ -287,6 +309,8 @@ def main():
         else:
             assign_b = tf.no_op()
 
+    state_stats = np.load(args.state_stats)['states'] if args.state_stats else None
+
     # TODO: look into Supervisor
     with tf.Session(graph=graph, config=get_sconfig(config.get('GPU'))) as sess:
         # Initialize the model first, so that we can test the empty model
@@ -307,7 +331,8 @@ def main():
             logger.info('Starting...')
             if args.valid:
                 logger.info('Epoch {:2d}-                 valid PPL {:6.3f}'.format(
-                    last_epoch, run_epoch(sess, mvalid, valid_data, 0, verbose=10)[0]))
+                    last_epoch, run_epoch(sess, mvalid, valid_data, 0,
+                                          state_stats, verbose=10)[0]))
 
             valid_ppls = []
             for epoch in range(last_epoch + 1, train_params.epochs + 1):
@@ -315,10 +340,11 @@ def main():
                 mtrain.assign_lr(sess, train_params.learning_rate * lr_decay)
 
                 train_perplexity, global_step = run_epoch(
-                    sess, mtrain, train_data, 0, verbose=args.verbose,
-                    global_step=global_step, writer=writer)
+                    sess, mtrain, train_data, state_stats=state_stats,
+                    verbose=args.verbose, global_step=global_step, writer=writer)
                 if args.valid:
-                    valid_perplexity, _ = run_epoch(sess, mvalid, valid_data)
+                    valid_perplexity, _ = run_epoch(sess, mvalid, valid_data,
+                                                    state_stats=state_stats)
                     valid_ppls.append(valid_perplexity)
                     valid_ppl = '{:6.3f}'.format(valid_perplexity)
                 else:
@@ -339,7 +365,8 @@ def main():
         # Evaluation
         if args.test:
             logger.info('Running evaluation...')
-            test_perplexity, _ = run_epoch(sess, mtest, test_data)
+            test_perplexity, _ = run_epoch(sess, mtest, test_data,
+                                           state_stats=state_stats)
             logger.info('Test perplexity: {:.3f}'.format(test_perplexity))
 
 
