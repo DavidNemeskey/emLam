@@ -44,14 +44,19 @@ class DataLoader(object):
         self.batch_div = self.__batch_per_batch()
 
     def __batch_per_batch(self):
-        """How many data batches per requested batch size."""
+        """
+        How many data batches per requested batch size. If data_batches is 0,
+        then the data can accomodate any batch_size.
+        """
+        if self.data_batches = 0:
+            return 1
         div, mod = divmod(self.data_batches, self.batch_size)
         if div == 0:
             raise ValueError('Not enough batch files ({} instead of {})'.format(
                 self.data_batches, self.batch_size))
         elif mod != 0:
             logging.getLogger('emLam.nn').warning(
-                'The number of data files ({}) '.format(self.data_batches) +
+                'The number of data batches ({}) '.format(self.data_batches) +
                 'is not compatible with the batch size ' +
                 '({}). Only using the first '.format(self.batch_size) +
                 '{} files.'.format(self.batch_size * div)
