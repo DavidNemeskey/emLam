@@ -141,15 +141,13 @@ class NgramLoader(DataLoader):
         """
         Ngram loader. While it is a subclass of DataLoader, the
         parameters data_len, data_batches inherited from it are not used. Also,
-        num_steps becomes the order, while vocab_file is mandatory.
-        mandatory
-        - ngram_file: the model / count file (see subclasses).
-        - order: the ngram order to extract from the file.
-        - batch_size: the batch size.
-        - vocab_file: for the token -> int mapping.
+        num_steps becomes the order (and then num_steps is decreased by one,
+        because the last word in an n-gram is the target), while vocab_file is
+        mandatory.
         """
         super(NgramLoader, self).__init__()
         self.order = self.num_steps
+        self.num_steps -= 1
         self.last_only = True
         if not self.vocab:
             raise ValueError('NgramLoader requires a vocabulary file.')
