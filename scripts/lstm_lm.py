@@ -235,8 +235,8 @@ def main():
         train_params['vocab_size'] = len(train_data.vocab)
         trainsm = get_loss_function(
             train_params.softmax, train_params.hidden_size,
-            train_params.vocab_size, train_params.batch_size,
-            train_params.num_steps, train_params.data_type,
+            train_params.vocab_size, train_data.batch_size,
+            train_data.num_steps, train_data.data_type,
             train_params.bias_trainable, last_only=train_data.last_only)
     if args.valid:
         valid_data = data_loader(args.valid, valid_params.batch_size,
@@ -244,8 +244,8 @@ def main():
         valid_params['vocab_size'] = len(valid_data.vocab)
         validsm = get_loss_function(
             valid_params.softmax, valid_params.hidden_size,
-            valid_params.vocab_size, valid_params.batch_size,
-            valid_params.num_steps, valid_params.data_type,
+            valid_params.vocab_size, valid_data.batch_size,
+            valid_data.num_steps, valid_data.data_type,
             last_only=valid_data.last_only)
     if args.test:
         test_data = data_loader(args.test, test_params.batch_size,
@@ -253,8 +253,8 @@ def main():
         test_params['vocab_size'] = len(test_data.vocab)
         testsm = get_loss_function(
             test_params.softmax, test_params.hidden_size,
-            test_params.vocab_size, test_params.batch_size,
-            test_params.num_steps, test_params.data_type,
+            test_params.vocab_size, test_data.batch_size,
+            test_data.num_steps, test_data.data_type,
             last_only=test_data.last_only)
 
     # Create the models and the global ops
