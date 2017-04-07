@@ -135,6 +135,7 @@ def run_epoch(session, model, data, epoch_size=0, state_stats=None, verbose=0,
                                             state_stats[layer, 1],
                                             layer.shape)
 
+    # Set up the values we want to get from the model
     fetches = [model.cost, model.final_state, model.train_op]
     fetches_summary = fetches + [model.summaries]
     if verbose:
@@ -143,10 +144,6 @@ def run_epoch(session, model, data, epoch_size=0, state_stats=None, verbose=0,
     for step in range(epoch_size):
         x, y = next(data_iter)
 
-        # feed_dict = {model.sequence: batch}
-        # for i, (c, h) in enumerate(model.initial_state):
-        #     feed_dict[c] = state[i].c  # CEC for layer i
-        #     feed_dict[h] = state[i].h  # hidden for layer i
         feed_dict = {
             model.input_data: x,
             model.targets: y,
@@ -163,7 +160,8 @@ def run_epoch(session, model, data, epoch_size=0, state_stats=None, verbose=0,
             cost, state, _ = session.run(fetches, feed_dict)
         # logger.debug('Cost: {}'.format(cost))
         costs += cost
-        iters += model.params.num_steps
+        # batch_size has been taken into account for cost
+        iters += model.params.num_steps if not data.last_only else 1
         if verbose and step % log_every == log_every - 1:
             logger.debug(
                 "%.3f perplexity: %.3f speed: %.0f wps" %
