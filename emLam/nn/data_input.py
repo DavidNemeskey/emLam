@@ -145,7 +145,7 @@ class NgramLoader(DataLoader):
         because the last word in an n-gram is the target), while vocab_file is
         mandatory.
         """
-        super(NgramLoader, self).__init__()
+        super(NgramLoader, self).__init__(*args)
         self.order = self.num_steps
         self.num_steps -= 1
         self.last_only = True
