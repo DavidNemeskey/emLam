@@ -205,6 +205,15 @@ def stop_early(valid_ppls, early_stop, save_dir):
         return False
 
 
+def update_params_from_data(params, data):
+    """
+    Updates the parameters in the parameter dictionary from the data loader,
+    which can overwrite some values.
+    """
+    params.num_steps = data.num_steps
+    params['vocab_size'] = len(data.vocab)
+
+
 def main():
     args, config = parse_arguments()
 
@@ -232,7 +241,7 @@ def main():
     if args.train:
         train_data = data_loader(args.train, train_params.batch_size,
                                  train_params.num_steps, vocab_file=args.vocab)
-        train_params['vocab_size'] = len(train_data.vocab)
+        update_params_from_data(train_params, train_data)
         trainsm = get_loss_function(
             train_params.softmax, train_params.hidden_size,
             train_params.vocab_size, train_data.batch_size,
@@ -241,7 +250,7 @@ def main():
     if args.valid:
         valid_data = data_loader(args.valid, valid_params.batch_size,
                                  valid_params.num_steps, vocab_file=args.vocab)
-        valid_params['vocab_size'] = len(valid_data.vocab)
+        update_params_from_data(valid_params, valid_data)
         validsm = get_loss_function(
             valid_params.softmax, valid_params.hidden_size,
             valid_params.vocab_size, valid_data.batch_size,
@@ -250,7 +259,7 @@ def main():
     if args.test:
         test_data = data_loader(args.test, test_params.batch_size,
                                 test_params.num_steps, vocab_file=args.vocab)
-        test_params['vocab_size'] = len(test_data.vocab)
+        update_params_from_data(test_params, test_data)
         testsm = get_loss_function(
             test_params.softmax, test_params.hidden_size,
             test_params.vocab_size, test_data.batch_size,
