@@ -158,7 +158,8 @@ class NgramLoader(DataLoader):
             raise ValueError('NgramLoader requires a vocabulary file.')
         self.vocab['<s>'] = self.vocab['</s>']  # We don't use <s>
         with openall(self.header) as inf:
-            self.ngram_file = inf.readline().strip()  # Second line
+            for line in inf:
+                self.ngram_file = line.strip()  # Second line
 
 
 class NgramModelLoader(NgramLoader):
