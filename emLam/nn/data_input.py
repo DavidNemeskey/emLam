@@ -9,6 +9,9 @@ import math
 import numpy as np
 
 from emLam.utils import openall
+from emLam.nn.bias import read_vocab_map
+
+# Proper data formats
 
 class DataLoader(object):
     def __init__(self, header, batch_size, num_steps,
@@ -28,6 +31,7 @@ class DataLoader(object):
                       is already in int format.
         """
         super(DataLoader, self).__init__()
+        self.logger = logging.getLogger('emLam.nn')
         self.header = header
         self.batch_size = batch_size
         self.num_steps = num_steps
@@ -36,7 +40,7 @@ class DataLoader(object):
         self.one_hot = one_hot
         self.data_type = data_type
         self.last_only = False
-        self.vocab = self.read_vocab(vocab_file) if vocab_file else None
+        self.vocab = read_vocab_map(vocab_file) if vocab_file else None
         self.batch_div = self.__batch_per_batch()
 
     def __batch_per_batch(self):
@@ -53,12 +57,6 @@ class DataLoader(object):
                 '{} files.'.format(self.batch_size * div)
             )
         return div
-
-    @staticmethod
-    def read_vocab(vocab_file):
-        with openall(vocab_file) as inf:
-            return {token_freq.split('\t')[0]: i for i, token_freq in
-                    enumerate(inf.read().strip().split('\n'))}
 
     def __iter__(self):
         raise NotImplementedError('__iter__ must be implemented.')
@@ -135,6 +133,82 @@ def digits_format_str(number):
     return '.{{:0{}}}.gz'.format(int(math.ceil(math.log10(number))))
 
 
+# Ngram formats
+
+
+class NgramLoader(DataLoader):
+    def __init__(self, *args):
+        """
+        Ngram loader. While it is a subclass of DataLoader, the
+        parameters data_len, data_batches inherited from it are not used. Also,
+        num_steps becomes the order, while vocab_file is mandatory.
+        mandatory
+        - ngram_file: the model / count file (see subclasses).
+        - order: the ngram order to extract from the file.
+        - batch_size: the batch size.
+        - vocab_file: for the token -> int mapping.
+        """
+        super(NgramLoader, self).__init__()
+        self.order = self.num_steps
+        self.last_only = True
+        if not self.vocab:
+            raise ValueError('NgramLoader requires a vocabulary file.')
+        self.vocab['<s>'] = self.vocab['</s>']  # We don't use <s>
+        with openall(self.header) as inf:
+            self.ngram_file = inf.readline().strip()  # Second line
+
+
+class NgramModelLoader(NgramLoader):
+    """Gets the data from the model (AT&T format) file."""
+    def __init__(self, *args):
+        super(NgramModelLoader, self).__init__(*args)
+        self.logger.info('Ngram model loader from {}'.format(self.ngram_file))
+
+
+class NgramCountLoader(NgramLoader):
+    """
+    Gets the data from the count file. This implementation holds the whole
+    index array for the ngrams in memory, but at least it is fast.
+    """
+    def __init__(self, *args):
+        super(NgramCountLoader, self).__init__(*args)
+        self.logger.info('Ngram count loader from {}'.format(self.ngram_file))
+        self.ngrams, self.freqs = self.__read_file()
+        self.data_len = self.freqs.sum()
+        self.epoch_size = self.data_len // self.batch_size
+        self.debug.info('Data len: {}, batch size: {}, epoch size: {}'.format(
+            self.data_len, self.batch_size, self.epoch_size))
+        self.seed = 42
+        self.indices = self.__fill_indices()
+
+    def __fill_indices(self):
+        """For the generation."""
+        indices = np.zeros(self.data_len, dtype=np.int32)
+        last_index = 0
+        for i, f in enumerate(self.freqs):
+            indices[last_index:last_index + f] = i
+            last_index += f
+        rnd = np.random.RandomState(self.seed)
+        rnd.shuffle(indices)
+        return indices
+
+    def __iter__(self):
+        last = 0
+        for e in range(self.epoch_size):
+            data = self.ngrams[self.indices[last:last + self.batch_size]]
+            yield data[:, :-1], data[:, 1:]
+            last += self.batch_size
+
+    def __read_file(self):
+        with openall(self.ngram_file, 'rt') as inf:
+            data_it = filter(lambda ngf: ngf[0].count(' ') == self.order - 1,
+                             map(lambda l: l.rstrip().split('\t'), inf))
+            data = [(np.array([self.vocab[word] for word in ngram.split(' ')],
+                              dtype=np.int32),
+                     int(freq)) for ngram, freq in data_it]
+            return map(np.array, zip(*data))
+
+
 def data_loader(header, batch_size, num_steps, one_hot=False,
                 data_type=np.int32, vocab_file=None):
     with openall(header) as inf:
@@ -143,5 +217,11 @@ def data_loader(header, batch_size, num_steps, one_hot=False,
             cls = TxtDiskLoader
         elif format == 'int':
             cls = IntMemLoader
+        elif format == 'ngram_count':
+            cls = NgramCountLoader
+        elif format == 'ngram':
+            cls = NgramModelLoader
+        else:
+            raise ValueError('Invalid data format {}'.format(format))
     return cls(header, batch_size, num_steps, int(data_len), int(data_batches),
                one_hot, data_type, vocab_file)
