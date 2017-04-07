@@ -48,7 +48,7 @@ class DataLoader(object):
         How many data batches per requested batch size. If data_batches is 0,
         then the data can accomodate any batch_size.
         """
-        if self.data_batches = 0:
+        if self.data_batches == 0:
             return 1
         div, mod = divmod(self.data_batches, self.batch_size)
         if div == 0:
