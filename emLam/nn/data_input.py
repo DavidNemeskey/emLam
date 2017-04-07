@@ -5,6 +5,7 @@
 
 import logging
 import math
+import os
 
 import numpy as np
 
@@ -48,7 +49,7 @@ class DataLoader(object):
         How many data batches per requested batch size. If data_batches is 0,
         then the data can accomodate any batch_size.
         """
-        if self.data_batches = 0:
+        if self.data_batches == 0:
             return 1
         div, mod = divmod(self.data_batches, self.batch_size)
         if div == 0:
@@ -157,8 +158,15 @@ class NgramLoader(DataLoader):
         if not self.vocab:
             raise ValueError('NgramLoader requires a vocabulary file.')
         self.vocab['<s>'] = self.vocab['</s>']  # We don't use <s>
+        self.ngram_file = self.__get_ngram_file()
+
+    def __get_ngram_file(self):
         with openall(self.header) as inf:
-            self.ngram_file = inf.readline().strip()  # Second line
+            for line in inf:
+                ngram_file = line.strip()  # Second line
+        if not os.path.isabs(ngram_file):
+            ngram_file = os.path.join(os.path.dirname(self.header), ngram_file)
+        return ngram_file
 
 
 class NgramModelLoader(NgramLoader):
@@ -179,7 +187,7 @@ class NgramCountLoader(NgramLoader):
         self.ngrams, self.freqs = self.__read_file()
         self.data_len = self.freqs.sum()
         self.epoch_size = self.data_len // self.batch_size
-        self.debug.info('Data len: {}, batch size: {}, epoch size: {}'.format(
+        self.logger.debug('Data len: {}, batch size: {}, epoch size: {}'.format(
             self.data_len, self.batch_size, self.epoch_size))
         self.seed = 42
         self.indices = self.__fill_indices()
