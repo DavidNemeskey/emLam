@@ -157,7 +157,10 @@ class NgramLoader(DataLoader):
         self.last_only = True
         if not self.vocab:
             raise ValueError('NgramLoader requires a vocabulary file.')
-        self.vocab['<s>'] = self.vocab['</s>']  # We don't use <s>
+        # We don't use <s>, so we delete it from the vocabulary. However,
+        # subclasses should replace <s> with </s> in the model as well.
+        if '<s>' in self.vocab:
+            del self.vocab['<s>']
         self.ngram_file = self.__get_ngram_file()
 
     def __get_ngram_file(self):
@@ -214,9 +217,13 @@ class NgramCountLoader(NgramLoader):
         with openall(self.ngram_file, 'rt') as inf:
             data_it = filter(lambda ngf: ngf[0].count(' ') == self.order - 1,
                              map(lambda l: l.rstrip().split('\t'), inf))
-            data = [(np.array([self.vocab[word] for word in ngram.split(' ')],
-                              dtype=np.int32),
-                     int(freq)) for ngram, freq in data_it]
+            data = [
+                (np.array([self.vocab[word] for word in
+                           ngram.replace('<s>', '</s>').split(' ')],
+                          dtype=np.int32),
+                 int(freq)
+                ) for ngram, freq in data_it
+            ]
             return map(np.array, zip(*data))
 
 
