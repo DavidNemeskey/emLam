@@ -104,6 +104,24 @@ def parse_arguments():
     return args, config
 
 
+def random_state(state, state_stats):
+    """Randomizes the state passed as an argument."""
+    st_shape = state_stats.shape
+    for layer in state:
+        if len(st_shape) == 3:  # LSTM
+            layer.c[:] = np.random.normal(state_stats[layer, 0, 0],
+                                          state_stats[layer, 0, 1],
+                                          layer.c.shape)
+            layer.h[:] = np.random.normal(state_stats[layer, 1, 0],
+                                          state_stats[layer, 1, 1],
+                                          layer.h.shape)
+        else:  # GRU, RNN
+            layer[:] = np.random.normal(state_stats[layer, 0],
+                                        state_stats[layer, 1],
+                                        layer.shape)
+    return state
+
+
 def run_epoch(session, model, data, epoch_size=0, state_stats=None, verbose=0,
               global_step=0, writer=None):
     """
@@ -119,21 +137,6 @@ def run_epoch(session, model, data, epoch_size=0, state_stats=None, verbose=0,
     costs = 0.0
     iters = 0
     state = session.run(model.initial_state)
-    # Set the initial state to random, if we have statistics for them
-    if state_stats:
-        st_shape = state_stats.shape
-        for layer in state:
-            if len(st_shape) == 3:  # LSTM
-                layer.c[:] = np.random.normal(state_stats[layer, 0, 0],
-                                              state_stats[layer, 0, 1],
-                                              layer.c.shape)
-                layer.h[:] = np.random.normal(state_stats[layer, 1, 0],
-                                              state_stats[layer, 1, 1],
-                                              layer.h.shape)
-            else:  # GRU, RNN
-                layer[:] = np.random.normal(state_stats[layer, 0],
-                                            state_stats[layer, 1],
-                                            layer.shape)
 
     # Set up the values we want to get from the model
     fetches = [model.cost, model.final_state, model.train_op]
@@ -143,6 +146,9 @@ def run_epoch(session, model, data, epoch_size=0, state_stats=None, verbose=0,
 
     for step in range(epoch_size):
         x, y = next(data_iter)
+        # Set the initial state to random, if we have statistics for them
+        if state_stats:
+            state = random_state(state, state_stats)
 
         feed_dict = {
             model.input_data: x,
