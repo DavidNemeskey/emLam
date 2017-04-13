@@ -3,6 +3,7 @@
 
 """Data readers that processes the output of prepare_input.py."""
 
+from collections import namedtuple
 import logging
 import math
 import os
@@ -153,6 +154,8 @@ class NgramLoader(DataLoader):
         """
         super(NgramLoader, self).__init__(*args)
         self.order = self.num_steps
+        if self.order <= 1:
+            raise ValueError('Invalid n-gram order: {}'.format(self.order))
         self.num_steps -= 1
         self.last_only = True
         if not self.vocab:
@@ -174,9 +177,44 @@ class NgramLoader(DataLoader):
 
 class NgramModelLoader(NgramLoader):
     """Gets the data from the model (AT&T format) file."""
+    Probs = namedtuple('Probs', ['word', 'prob'])
+    Ngrams = namedtuple('Ngrams', ['context', 'word', 'prob'])
+
     def __init__(self, *args):
         super(NgramModelLoader, self).__init__(*args)
         self.logger.info('Ngram model loader from {}'.format(self.ngram_file))
+        self.ngrams = self.__read_file()
+        self.data_len = len(self.ngrams)
+        self.indices = self.__fill_indices()
+
+    def __fill_indices(self):
+        indices = np.arange(self.data_len, dtype=np.int32)
+        rnd = np.random.RandomState(42)
+        rnd.shuffle(indices)
+        return indices
+
+    def __read_file(self):
+        header = '\\{}-grams:'.format(self.order)
+        ngrams = []
+        last_context = None
+        with openall(self.ngram_file, 'rt') as inf:
+            # TODO read backoff values instead of this
+            for line in inf:
+                if line.strip() == header:
+                    break
+            for line in inf:
+                if '\t' in line:
+                    fields = line.strip().split('\t')
+                    context, word = fields[1].rsplit(' ', 1)
+                    if context != last_context:
+                        ngrams.append(self.Ngrams(
+                            np.array([self.vocab[w] for w in context]), [], []))
+                        last_context = context
+                    ngrams[-1].word.append(self.vocab[word])
+                    ngrams[-1].prob.append(math.pow(10.0, fields[0]))
+                else:
+                    break
+        return ngrams
 
 
 class NgramCountLoader(NgramLoader):
@@ -221,8 +259,8 @@ class NgramCountLoader(NgramLoader):
                 (np.array([self.vocab[word] for word in
                            ngram.replace('<s>', '</s>').split(' ')],
                           dtype=np.int32),
-                 int(freq)
-                ) for ngram, freq in data_it
+                 int(freq))
+                for ngram, freq in data_it
             ]
             return map(np.array, zip(*data))
 
