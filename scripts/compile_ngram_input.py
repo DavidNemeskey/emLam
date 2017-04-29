@@ -12,15 +12,13 @@ from emLam.nn.bias import read_vocab_map
 from emLam.utils import openall
 
 
-# TODO: frequencies
-
-
 class Ngrams(object):
-    def __init__(self, context, word=None, prob=None, bow=0):
+    def __init__(self, context, word=None, prob=None, bow=0, count=0):
         self.context = context
         self.word = word or []
         self.prob = prob or []
         self.bow = bow
+        self.count = count
 
     def __repr__(self):
         return '{}\t{}\t{}'.format(self.context, list(zip(self.word, self.prob)), self.bow)
@@ -41,6 +39,9 @@ def parse_arguments():
     parser.add_argument('--vocab-file', '-v', required=True,
                         help='the vocabulary file, created by count_vocab.py. '
                              'Only needed for the int format.')
+    parser.add_argument('--counts', '-c',
+                        help='the ngram count file. If specified, the context '
+                             'frequencies are also recorded in the model.')
     return parser.parse_args()
 
 
@@ -95,15 +96,32 @@ def read_bows(ngram_file, model, order):
         ngram.bow = bows[ngram.context]
 
 
-def words_to_ids(model, vocab):
+def read_counts(counts_file, model):
+    """Reads the counts for all contexts in model from counts_file."""
+    counts = {ngram.context: 0 for ngram in model}
+    with openall(counts_file) as inf:
+        for line in inf:
+            context, count = line.strip().split('\t')
+            if context in counts:
+                counts[context] = int(count)
+    for ngram in model:
+        ngram.count = counts[ngram.context]
+
+
+def words_to_ids(model, vocab, keep_counts=True):
     """Converts the model to use lists of word ids from vocab."""
-    return [
+    ret = [
         ([vocab[cword] for cword in ngram.context.split(' ')],
          {'words': [vocab[word] for word in ngram.word],
           'probs': [math.pow(10, prob) for prob in ngram.prob],
-          'bow': math.pow(10, ngram.bow)})
+          'bow': math.pow(10, ngram.bow),
+          'count': ngram.count})
         for ngram in model
     ]
+    if not keep_counts:
+        for r in ret:
+            del r[1]['count']
+    return ret
 
 
 def read_vocab(vocab_file):
@@ -120,7 +138,9 @@ def main():
     args = parse_arguments()
     ngrams = ngrams_to_model(read_ngrams(args.ngram_file, args.order))
     read_bows(args.ngram_file, ngrams, args.order)
-    model = words_to_ids(ngrams, read_vocab(args.vocab_file))
+    if args.counts:
+        read_counts(args.counts, ngrams)
+    model = words_to_ids(ngrams, read_vocab(args.vocab_file), args.counts)
     with openall(args.output_prefix + '.gz', 'wt') as outf:
         json.dump(model, outf)
 
