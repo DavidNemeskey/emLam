@@ -69,7 +69,7 @@ class TxtDiskLoader(DataLoader):
         super(TxtDiskLoader, self).__init__(*args)
         if not self.vocab:
             raise ValueError('TxtDiskLoader requires a vocabulary file.')
-        self.queues = self.__setup_queues(self.data_batches)
+        self.queues = self.__setup_queues()
         self.epoch_size = (
             ((self.data_len // self.data_batches - 1) // self.num_steps) *
             len(self.queues[0])

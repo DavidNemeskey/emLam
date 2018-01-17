@@ -155,7 +155,7 @@ class TxtOutputWriter(OutputWriter):
         for i in range(self.batch_size):
             with openall(self.output_prefix + out_ext.format(i), 'wt') as outf:
                 for sentence in self.batches[i]:
-                    print(' '.join(sentence), file=outf)
+                    print('\n'.join(sentence), file=outf)
 
 
 def parse_arguments(compilers, formats):
