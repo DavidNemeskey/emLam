@@ -150,7 +150,7 @@ class IntOutputWriter(OutputWriter):
 
 class TxtOutputWriter(OutputWriter):
     def write_output(self, *args):
-        self.write_header()
+        self.write_header(self.aggregate_tokens(min))
         out_ext = digits_format_str(self.batch_size)
         for i in range(self.batch_size):
             with openall(self.output_prefix + out_ext.format(i), 'wt') as outf:

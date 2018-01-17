@@ -71,8 +71,7 @@ class TxtDiskLoader(DataLoader):
             raise ValueError('TxtDiskLoader requires a vocabulary file.')
         self.queues = self.__setup_queues()
         self.epoch_size = (
-            ((self.data_len // self.data_batches - 1) // self.num_steps) *
-            len(self.queues[0])
+            ((self.data_len - 1) // self.num_steps) * len(self.queues[0])
         )  # -1 because targets are shifted right by 1 step
 
     def __setup_queues(self):
