@@ -187,8 +187,24 @@ def _get_field_selectors():
 
 
 def get_field_function(field):
+    """Returns the named field function."""
     return _get_field_selectors()['field_' + field]
 
 
 def list_field_functions():
+    """Lists the available field functions."""
     return [f[6:] for f in _get_field_selectors().keys()]
+
+
+def convert_token(token, field_fun, lowercase):
+    """
+    Converts a CoNLL token according to field_fun. If lowercase is true, the
+    word or lemma part is lowercased.
+
+    Note: the mapping is one-to-many, as the field functions return a list of
+    strings.
+    """
+    if lowercase:
+        token[WORD] = token[WORD].lower()
+        token[LEMMA] = token[LEMMA].lower()
+    return field_fun(token)

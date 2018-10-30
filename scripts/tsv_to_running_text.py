@@ -6,12 +6,14 @@ Converts the tsv format to running text (SRILM-style, one sentence per line).
 from __future__ import absolute_import, division, print_function
 from argparse import ArgumentParser
 from functools import partial
+from itertools import chain
 import logging
 import os
 
 from emLam import WORD, LEMMA
-from emLam.conversions import get_field_function, list_field_functions
-from emLam.utils import openall, run_function, setup_queue_logger, source_target_file_list
+from emLam.conversions import convert_token, get_field_function, list_field_functions
+from emLam.utils import FileReadError, openall, read_conll, run_function
+from emLam.utils import setup_queue_logger, source_target_file_list
 
 
 def parse_arguments():
@@ -46,30 +48,18 @@ def convert(source_target_file, field_fun, lowercase,
     # TODO: all logging-related code to utils (with annotations)
     source_file, target_file = source_target_file
     logger = setup_queue_logger(logging_level, logging_queue)
+    converter = partial(convert_token, field_fun=field_fun, lowercase=lowercase)
 
     logger.info('Started processing {}'.format(source_file))
     with openall(source_file) as inf, openall(target_file, 'wt') as outf:
-        sentence = []
-        for line_no, line in enumerate(inf):
+        for sentence in read_conll(inf):
             try:
-                line = line.strip()
-                if len(line) > 0:
-                    fields = line.split("\t")
-                    if lowercase:
-                        fields[WORD] = fields[WORD].lower()
-                        fields[LEMMA] = fields[LEMMA].lower()
-                    sentence.extend(field_fun(fields))
-                else:
-                    if len(sentence) > 0:
-                        print(u' '.join(sentence), file=outf)
-                        sentence = []
-            except Exception as e:
+                print(u' '.join(chain(*map(converter, sentence))), file=outf)
+            except FileReadError as fre:
                 logger.exception('Exception in {}:{}, line `{}: {}`'.format(
-                    source_file, line_no, line, e))
+                    source_file, fre.line_no, fre.line, fre.error))
                 # raise
                 return
-        if len(sentence) > 0:
-            print(u' '.join(sentence), file=outf)
     logger.info('Done processing {}'.format(source_file))
 
 
@@ -88,3 +78,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
