@@ -199,7 +199,7 @@ def field_real_lemma_inf(fields):
             ret_lemma, ret_infl = _reconstruct_lemma_inf(parts)
             return [ret_lemma] + ret_infl
     else:
-        return word
+        return [word]
 
 
 def _split_ana(ana):
