@@ -288,16 +288,28 @@ class AttrDict(dict):
         self[key] = value
 
 
+class FileReadError(Exception):
+    """Wraps other exceptions with the line number where they happened."""
+    def __init__(self, line_no, error, line=None):
+        super(FileReadError, self).__init__(line_no, error, line)
+        self.line_no = line_no
+        self.error = error
+        self.line = None
+
+
 def read_conll(instream):
     """A generator that returns the sentences from a conll file."""
     sentence = []
-    for line in instream:
-        l = line.strip()
-        if len(l) == 0:  # EoS
-            yield sentence
-            sentence = []
-        else:
-            sentence.append(l.split(u'\t'))
+    for line_no, line in enumerate(instream):
+        try:
+            l = line.strip()
+            if len(l) == 0:  # EoS
+                yield sentence
+                sentence = []
+            else:
+                sentence.append(l.split(u'\t'))
+        except Exception as e:
+            raise FileReadError(line_no, e)
     else:
         if len(sentence) > 0:
             yield sentence
