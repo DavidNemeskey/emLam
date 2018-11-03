@@ -191,7 +191,7 @@ def field_real_lemma_inf(fields):
     word, lemma, pos, anas = fields[WORD], fields[LEMMA], fields[POS], fields[ANAS]
     anas = json.loads(anas)
     # not OTHER, hyphen, or unanalyzed word
-    if '[' in pos and not _univ_hyph_re.match(pos) and anas:
+    if '[' in pos and not _pos_hyph_re.match(pos) and anas:
         # Filter to the analyses selected by emLemma
         anas = [ana for ana in anas if ana['lemma'] == lemma and ana['feats'] == pos]
         for ana in anas:
