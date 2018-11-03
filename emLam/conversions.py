@@ -219,6 +219,9 @@ def _split_ana(ana):
         else:
             assert 'This should not happen: {}'.format(part.groups())
 
+        ret.append((tag, deep, surface))
+    return ret
+
 
 def _reconstruct_lemma_inf(ana_parts):
     """
