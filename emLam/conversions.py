@@ -192,8 +192,12 @@ def field_real_lemma_inf(fields):
     anas = json.loads(anas)
     # not OTHER, hyphen, or unanalyzed word
     if '[' in pos and not _pos_hyph_re.match(pos) and anas:
-        # Filter to the analyses selected by emLemma
-        anas = [ana for ana in anas if ana['lemma'] == lemma and ana['feats'] == pos]
+        # Filter to the analyses selected by emLemma (or no lemma for certain
+        # degenerate cases)
+        anas = [ana for ana in anas if
+                ana['feats'].lower() == pos.lower() and
+                (not ana['lemma'] or ana['lemma'].lower() == lemma.lower())
+               ]
         for ana in anas:
             parts = _split_ana(ana)
             ret_lemma, ret_infl = _reconstruct_lemma_inf(parts)
