@@ -239,19 +239,21 @@ def _reconstruct_lemma_inf(ana_parts):
     inf = []
 
     # For the last non-inflection tag, we must keep the deep ("lemmatized")
-    # form, so that the word doesn't end in a linking/modified vowel
-    keep_surface = False
+    # form, so that the word doesn't end in a linking/modified vowel. For each
+    # other, we copy the surface form. This variable keeps track of where we are
+    at_inflections = True
     for ana_tag, ana_deep, ana_surface in ana_parts[::-1]:
         # Note: 
-        if ana_tag.startswith('[/') or ana_tag.startswith('[_'):
+        if (ana_tag.startswith('[/') or ana_tag.startswith('[_') or
+            _pos_hyph_re.match(ana_tag)
+        ):
             # POS tag or derivation: fuse with lemma
-            lemma.append(ana_surface if keep_surface else ana_deep)
-            keep_surface = True
-        elif ana_tag == '[]':
-            # Degenerate
-            lemma.append(ana_surface if keep_surface else ana_deep)
-            keep_surface = True
-        elif ana_tag not in _pos_drop:
+            lemma.append(ana_surface if not at_inflections else ana_deep)
+            at_inflections = False
+        elif ana_tag not in _pos_drop and at_inflections:
+            # The last check is needed to avoid adding duplicate inflections
+            # such as with szülőddel-tanároddal (which of course should be 3
+            # separate tokens)
             inf.append(ana_tag)
 
     return ''.join(lemma[::-1]), inf[::-1]
