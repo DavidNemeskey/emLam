@@ -29,7 +29,7 @@ def parse_arguments():
     parser.add_argument('--field', '-f', default=None,
                         choices=sorted(list_field_functions()),
                         help='the field section function.')
-    parser.add_argument('--processes', '-p', type=int, default=1,
+    parser.add_argument('--processes', '-P', type=int, default=1,
                         help='the number of processes to use parallelly [1].')
     parser.add_argument('--log-level', '-L', type=str, default=None,
                         choices=['debug', 'info', 'warning', 'error', 'critical'],
@@ -60,6 +60,9 @@ def convert(source_target_file, field_fun, lowercase,
                     source_file, fre.line_no, fre.line, fre.error))
                 # raise
                 return
+            except:
+                logger.exception('Error in {}/{}'.format(source_file, sentence))
+                raise
     logger.info('Done processing {}'.format(source_file))
 
 

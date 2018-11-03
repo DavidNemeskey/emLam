@@ -198,10 +198,17 @@ def field_real_lemma_inf(fields):
                 ana['feats'].lower() == pos.lower() and
                 (not ana['lemma'] or ana['lemma'].lower() == lemma.lower())
                ]
-        for ana in anas:
-            parts = _split_ana(ana)
-            ret_lemma, ret_infl = _reconstruct_lemma_inf(parts)
-            return [ret_lemma] + ret_infl
+        if anas:
+            for ana in anas:
+                parts = _split_ana(ana)
+                ret_lemma, ret_infl = _reconstruct_lemma_inf(parts)
+                return [ret_lemma] + ret_infl
+        else:
+            import logging
+            logger = logging.getLogger('emLam')
+            logger.warning('No match with lemma: {} {} {}'.format(
+                lemma, pos, anas))
+            return [word]
     else:
         return [word]
 
